@@ -11,7 +11,6 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -26,7 +25,7 @@ public final class ManageResourceFromMSIEnabledVirtualMachineBelongsToAADGroup {
 
     public void Foo() throws MalformedURLException, IOException {
         StringBuilder payload = new StringBuilder();
-        payload.append("api-version");
+        payload.append("apiVersion");
         payload.append("=");
         payload.append(URLEncoder.encode(this.apiVersion, "UTF-8"));
         payload.append("&");
@@ -72,9 +71,15 @@ public final class ManageResourceFromMSIEnabledVirtualMachineBelongsToAADGroup {
             System.out.println(result);
             //
 
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw e;
+        } catch (Exception exception) {
+            String reason = null;
+            if (connection.getResponseMessage() != null)
+            {
+                reason = String.format("code: %s message: %s", connection.getResponseCode(), connection.getResponseMessage());
+                throw new RuntimeException(reason, exception);
+            } else {
+                throw new RuntimeException(exception);
+            }
         } finally {
             if (connection != null) {
                 connection.disconnect();
