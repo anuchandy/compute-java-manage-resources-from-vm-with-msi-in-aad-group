@@ -122,8 +122,10 @@ public final class ManageResourceFromMSIEnabledVirtualMachineBelongsToAADGroup {
                 String result = reader.readLine();
                 return adapter.deserialize(result, MSIToken.class);
             } catch (Exception exception) {
+                System.out.println("Retrying...");
                 if (connection.getResponseCode() == 429) {
                     int retryTimeout = retrySlots.get(new Random().nextInt(retry)) * 1000;
+                    System.out.println("Waiting for: " + retryTimeout + " sec");
                     Sleep(retryTimeout);
                     retry++;
                 } else {

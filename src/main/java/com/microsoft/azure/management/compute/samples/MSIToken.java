@@ -25,8 +25,9 @@ class MSIToken {
     }
 
     boolean isExpired() {
-        DateTime now = DateTime.now(DateTimeZone.UTC);
-        DateTime expireOn = epoch.plusSeconds(Integer.parseInt(this.expiresOn));
-        return now.plusMinutes(5).isAfter(expireOn.getMillis());
+        return true;
+        // DateTime now = DateTime.now(DateTimeZone.UTC);
+        // DateTime expireOn = epoch.plusSeconds(Integer.parseInt(this.expiresOn));
+        // return now.plusMinutes(5).isAfter(expireOn.getMillis());
     }
 }
