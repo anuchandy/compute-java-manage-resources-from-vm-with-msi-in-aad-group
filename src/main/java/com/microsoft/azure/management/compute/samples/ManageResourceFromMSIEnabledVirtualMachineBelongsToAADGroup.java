@@ -40,7 +40,7 @@ public final class ManageResourceFromMSIEnabledVirtualMachineBelongsToAADGroup {
             payload.append("=");
             payload.append(URLEncoder.encode(this.apiVersion, "UTF-8"));
             payload.append("&");
-            payload.append("resource1");
+            payload.append("resource");
             payload.append("=");
             payload.append(URLEncoder.encode(this.resource, "UTF-8"));
             payload.append("&");
