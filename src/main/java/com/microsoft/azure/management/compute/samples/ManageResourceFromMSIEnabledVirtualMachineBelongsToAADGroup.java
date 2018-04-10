@@ -59,14 +59,9 @@ public final class ManageResourceFromMSIEnabledVirtualMachineBelongsToAADGroup {
 
             connection.setRequestMethod("GET");
             connection.setRequestProperty("Metadata", "true");
-            connection.setDoOutput(true);
-
             connection.connect();
 
             System.out.println("Connected");
-
-            OutputStreamWriter wr = new OutputStreamWriter(connection.getOutputStream());
-            wr.flush();
 
             InputStream stream = connection.getInputStream();
             BufferedReader reader = new BufferedReader(new InputStreamReader(stream, "UTF-8"), 100);
