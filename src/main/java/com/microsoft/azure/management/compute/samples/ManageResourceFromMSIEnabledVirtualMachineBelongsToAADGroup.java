@@ -6,12 +6,7 @@
 
 package com.microsoft.azure.management.compute.samples;
 
-
 import com.microsoft.azure.serializer.AzureJacksonAdapter;
-import com.sun.tools.corba.se.idl.constExpr.Times;
-import org.apache.commons.net.ntp.TimeStamp;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 
 import java.io.BufferedReader;
 import java.io.IOException;
