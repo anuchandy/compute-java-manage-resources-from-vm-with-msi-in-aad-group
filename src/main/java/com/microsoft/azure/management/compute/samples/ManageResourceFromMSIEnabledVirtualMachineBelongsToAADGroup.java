@@ -26,7 +26,7 @@ public final class ManageResourceFromMSIEnabledVirtualMachineBelongsToAADGroup {
 
     public void Foo() throws MalformedURLException, IOException {
         StringBuilder payload = new StringBuilder();
-        payload.append("apiVersion");
+        payload.append("api-version");
         payload.append("=");
         payload.append(URLEncoder.encode(this.apiVersion, "UTF-8"));
         payload.append("&");
