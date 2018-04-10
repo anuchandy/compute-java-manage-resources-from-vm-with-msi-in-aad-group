@@ -6,202 +6,91 @@
 
 package com.microsoft.azure.management.compute.samples;
 
-import com.microsoft.azure.management.Azure;
-import com.microsoft.azure.management.compute.CachingTypes;
-import com.microsoft.azure.management.compute.KnownLinuxVirtualMachineImage;
-import com.microsoft.azure.management.compute.VirtualMachine;
-import com.microsoft.azure.management.compute.VirtualMachineSizeTypes;
-import com.microsoft.azure.management.graphrbac.ActiveDirectoryGroup;
-import com.microsoft.azure.management.graphrbac.BuiltInRole;
-import com.microsoft.azure.management.resources.ResourceGroup;
-import com.microsoft.azure.management.resources.fluentcore.arm.Region;
-import com.microsoft.azure.management.resources.fluentcore.utils.SdkContext;
-import com.microsoft.azure.management.samples.Utils;
-import com.microsoft.azure.management.storage.StorageAccount;
-import com.microsoft.rest.LogLevel;
 
-import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLEncoder;
 
-/**
- * Azure Compute sample for managing virtual machines -
- *   - Create a AAD security group
- *   - Assign AAD security group Contributor role at a resource group
- *   - Create a virtual machine with MSI enabled
- *   - Add virtual machine MSI service principal to the AAD group
- *   - Set custom script in the virtual machine that
- *          - install az cli in the virtual machine
- *          - uses az cli MSI credentials to create a storage account
- *   - Get storage account created through MSI credentials.
- */
 public final class ManageResourceFromMSIEnabledVirtualMachineBelongsToAADGroup {
-    /**
-     * Main function which runs the actual sample.
-     *
-     * @param azure instance of the azure client
-     * @return true if sample runs successfully
-     */
-    public static boolean runSample(Azure azure) {
-        String groupName = SdkContext.randomResourceName("group", 16);
-        final String rgName = Utils.createRandomName("rgCOMV");
-        String roleAssignmentName = SdkContext.randomUuid();
-        final String linuxVMName = Utils.createRandomName("VM1");
-        final String pipName = Utils.createRandomName("pip1");
-        final String userName = "tirekicker";
-        final String password = "12NewPA$$w0rd!";
-        final Region region = Region.US_WEST_CENTRAL;
+    private final String resource = "https://management.azure.com/";
+    private final String apiVersion = "2018-02-01";
+    private final String objectId = null;
+    private final String clientId = null;
+    private final String identityId = "/subscriptions/ec0aa5f7-9e78-40c9-85cd-535c6305b380/resourcegroups/1c2b4bf7e1f448e/providers/Microsoft.ManagedIdentity/userAssignedIdentities/msi-idd7b42487";
 
-        final String installScript = "https://raw.githubusercontent.com/Azure/azure-libraries-for-java/master/azure-samples/src/main/resources/create_resources_with_msi.sh";
-        String installCommand = "bash create_resources_with_msi.sh {stgName} {rgName} {location}";
-        List<String> fileUris = new ArrayList<>();
-        fileUris.add(installScript);
+    public void Foo() throws MalformedURLException, IOException {
+        StringBuilder payload = new StringBuilder();
+        payload.append("apiVersion");
+        payload.append("=");
+        payload.append(URLEncoder.encode(this.apiVersion, "UTF-8"));
+        payload.append("&");
+        payload.append("resource");
+        payload.append("=");
+        payload.append(URLEncoder.encode(this.resource, "UTF-8"));
+        payload.append("&");
+        if (this.objectId != null) {
+            payload.append("object_id");
+            payload.append("=");
+            payload.append(URLEncoder.encode(this.objectId, "UTF-8"));
+        } else if (this.clientId != null) {
+            payload.append("client_id");
+            payload.append("=");
+            payload.append(URLEncoder.encode(this.clientId, "UTF-8"));
+        } else if (this.identityId != null) {
+            payload.append("msi_res_id");
+            payload.append("=");
+            payload.append(URLEncoder.encode(this.identityId, "UTF-8"));
+        }
 
+        URL url = new URL(String.format("http://169.254.169.254/metadata/identity/oauth2/token?%s", payload.toString()));
+
+        System.out.println("Connecting to:" + url.toString());
+        //
+        HttpURLConnection connection = null;
+        //
         try {
+            connection = (HttpURLConnection) url.openConnection();
 
-            //=============================================================
-            // Create a AAD security group
+            connection.setRequestMethod("GET");
+            connection.setRequestProperty("Metadata", "true");
+            connection.setDoOutput(true);
 
-            System.out.println("Creating a AAD security group");
+            connection.connect();
 
-            ActiveDirectoryGroup activeDirectoryGroup = azure.accessManagement()
-                    .activeDirectoryGroups()
-                    .define(groupName)
-                        .withEmailAlias(groupName)
-                        .create();
+            System.out.println("Connected");
 
-            //=============================================================
-            // Assign AAD security group Contributor role at a resource group
+            OutputStreamWriter wr = new OutputStreamWriter(connection.getOutputStream());
+            wr.flush();
 
-            ResourceGroup resourceGroup = azure.resourceGroups()
-                    .define(rgName)
-                        .withRegion(region)
-                        .create();
-
-            SdkContext.sleep(45 * 1000);
-
-            System.out.println("Assigning AAD security group Contributor role to the resource group");
-
-            azure.accessManagement()
-                    .roleAssignments()
-                    .define(roleAssignmentName)
-                        .forGroup(activeDirectoryGroup)
-                        .withBuiltInRole(BuiltInRole.CONTRIBUTOR)
-                        .withResourceGroupScope(resourceGroup)
-                        .create();
-
-            System.out.println("Assigned AAD security group Contributor role to the resource group");
-
-            //=============================================================
-            // Create a Linux VM with MSI enabled
-
-            System.out.println("Creating a Linux VM with MSI enabled");
-
-            VirtualMachine virtualMachine = azure.virtualMachines()
-                    .define(linuxVMName)
-                        .withRegion(region)
-                        .withNewResourceGroup(rgName)
-                        .withNewPrimaryNetwork("10.0.0.0/28")
-                        .withPrimaryPrivateIPAddressDynamic()
-                        .withNewPrimaryPublicIPAddress(pipName)
-                        .withPopularLinuxImage(KnownLinuxVirtualMachineImage.UBUNTU_SERVER_16_04_LTS)
-                        .withRootUsername(userName)
-                        .withRootPassword(password)
-                        .withSize(VirtualMachineSizeTypes.STANDARD_DS2_V2)
-                        .withOSDiskCaching(CachingTypes.READ_WRITE)
-                        .withSystemAssignedManagedServiceIdentity()
-                        .create();
-
-            System.out.println("Created virtual machine with MSI enabled");
-            Utils.print(virtualMachine);
-
-            //=============================================================
-            // Add virtual machine MSI service principal to the AAD group
-
-            System.out.println("Adding virtual machine MSI service principal to the AAD group");
-
-            activeDirectoryGroup.update()
-                    .withMember(virtualMachine.systemAssignedManagedServiceIdentityPrincipalId())
-                    .apply();
-
-            System.out.println("Added virtual machine MSI service principal to the AAD group");
-
-            System.out.println("Waiting 15 minutes to MSI extension in the VM to refresh the token");
-
-            SdkContext.sleep(10 * 60 * 1000);
-
-            // Prepare custom script t install az cli that uses MSI to create a storage account
+            InputStream stream = connection.getInputStream();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(stream, "UTF-8"), 100);
+            String result = reader.readLine();
             //
-            final String stgName = Utils.createRandomName("st44");
-            installCommand = installCommand.replace("{stgName}", stgName)
-                    .replace("{rgName}", rgName)
-                    .replace("{location}", region.name());
-
-            // Update the VM by installing custom script extension.
+            System.out.println("Done, result is:");
             //
-            System.out.println("Installing custom script extension to configure az cli in the virtual machine");
-            System.out.println("az cli will use MSI credentials to create storage account");
-
-            virtualMachine
-                    .update()
-                        .defineNewExtension("CustomScriptForLinux")
-                            .withPublisher("Microsoft.OSTCExtensions")
-                            .withType("CustomScriptForLinux")
-                            .withVersion("1.4")
-                            .withMinorVersionAutoUpgrade()
-                            .withPublicSetting("fileUris", fileUris)
-                            .withPublicSetting("commandToExecute", installCommand)
-                            .attach()
-                        .apply();
-
-            // Retrieve the storage account created by az cli using MSI credentials
+            System.out.println(result);
             //
-            StorageAccount storageAccount = azure.storageAccounts()
-                    .getByResourceGroup(rgName, stgName);
 
-            System.out.println("Storage account created by az cli using MSI credential");
-            Utils.print(storageAccount);
-            return true;
-        } catch (Exception f) {
-            System.out.println(f.getMessage());
-            f.printStackTrace();
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw e;
         } finally {
-            try {
-                System.out.println("Deleting Resource Group: " + rgName);
-                azure.resourceGroups().beginDeleteByName(rgName);
-            } catch (NullPointerException npe) {
-                System.out.println("Did not create any resources in Azure. No clean up is necessary");
-            } catch (Exception g) {
-                g.printStackTrace();
+            if (connection != null) {
+                connection.disconnect();
             }
         }
-        return false;
     }
 
-    /**
-     * Main entry point.
-     * @param args the parameters
-     */
-    public static void main(String[] args) {
-        try {
-            //=============================================================
-            // Authenticate
 
-            final File credFile = new File(System.getenv("AZURE_AUTH_LOCATION"));
-
-            Azure azure = Azure.configure()
-                    .withLogLevel(LogLevel.BODY_AND_HEADERS)
-                    .authenticate(credFile)
-                    .withDefaultSubscription();
-
-            // Print selected subscription
-            System.out.println("Selected subscription: " + azure.subscriptionId());
-
-            runSample(azure);
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
-            e.printStackTrace();
-        }
+    public static void main(String[] args) throws MalformedURLException, IOException {
+        ManageResourceFromMSIEnabledVirtualMachineBelongsToAADGroup msi = new ManageResourceFromMSIEnabledVirtualMachineBelongsToAADGroup();
+        msi.Foo();
     }
 
     private ManageResourceFromMSIEnabledVirtualMachineBelongsToAADGroup() {
