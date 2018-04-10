@@ -16,6 +16,9 @@ class MSIToken {
     @JsonProperty(value = "expires_on")
     private String expiresOn;
 
+    @JsonProperty(value = "anu")
+    private String anu;
+
     String accessToken() {
         return accessToken;
     }
@@ -25,9 +28,8 @@ class MSIToken {
     }
 
     boolean isExpired() {
-        return true;
-        // DateTime now = DateTime.now(DateTimeZone.UTC);
-        // DateTime expireOn = epoch.plusSeconds(Integer.parseInt(this.expiresOn));
-        // return now.plusMinutes(5).isAfter(expireOn.getMillis());
+        DateTime now = DateTime.now(DateTimeZone.UTC);
+        DateTime expireOn = epoch.plusSeconds(Integer.parseInt(this.expiresOn));
+        return now.plusMinutes(5).isAfter(expireOn.getMillis());
     }
 }

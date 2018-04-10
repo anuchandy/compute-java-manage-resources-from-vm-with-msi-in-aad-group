@@ -154,7 +154,6 @@ public final class ManageResourceFromMSIEnabledVirtualMachineBelongsToAADGroup {
 
     public static void main(String[] args) throws MalformedURLException, IOException {
         ManageResourceFromMSIEnabledVirtualMachineBelongsToAADGroup msi = new ManageResourceFromMSIEnabledVirtualMachineBelongsToAADGroup();
-
         for (int i = 0; i < 100000; i++) {
             System.out.println();
             msi.getToken();
