@@ -20,19 +20,64 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public final class ManageResourceFromMSIEnabledVirtualMachineBelongsToAADGroup {
     private final List<Integer> retrySlots = new ArrayList<>(Arrays.asList(new Integer [] { 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584, 4181, 6765 }));
     private final int maxRetry = retrySlots.size();
+    private final Lock lock = new ReentrantLock();
+    private final AzureJacksonAdapter adapter = new AzureJacksonAdapter();
+    private final ConcurrentHashMap<String, MSIToken> cache = new ConcurrentHashMap<>();
 
     private final String resource = "https://management.azure.com/";
     private final String apiVersion = "2018-02-01";
     private final String objectId = null;
     private final String clientId = null;
     private final String identityId = "/subscriptions/ec0aa5f7-9e78-40c9-85cd-535c6305b380/resourcegroups/1c2b4bf7e1f448e/providers/Microsoft.ManagedIdentity/userAssignedIdentities/msi-idd7b42487";
-    private final AzureJacksonAdapter adapter;
 
-    public MSIToken retrieveTokenFromIDMSWithRetry() throws IOException {
+
+    private ManageResourceFromMSIEnabledVirtualMachineBelongsToAADGroup() {
+    }
+
+
+    public MSIToken getToken() {
+        MSIToken token = cache.get(resource);
+        System.out.println("Looking up cache..");
+        if (token != null && !token.isExpired()) {
+            System.out.println("Found in cache..");
+            return token;
+        }
+        lock.lock();
+        System.out.println("Not in cache..");
+        try {
+            token = cache.get(resource);
+            System.out.println("Looking cache once again..");
+            if (token != null && !token.isExpired()) {
+                System.out.println("Found in cache..");
+                return token;
+            }
+            System.out.println("Not in cache..");
+            try {
+                token = retrieveTokenFromIDMSWithRetry();
+                System.out.println("Retrieved new token and putting in cache..");
+                if (token != null) {
+                    System.out.println("TokenType:" + token.tokenType());
+                    System.out.println("IsExpired:" + token.isExpired());
+                    System.out.println("AccessToken:" + token.accessToken());
+                    cache.put(resource, token);
+                }
+            } catch (IOException exception) {
+                throw new RuntimeException(exception);
+            }
+            return token;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private MSIToken retrieveTokenFromIDMSWithRetry() throws IOException {
         StringBuilder payload = new StringBuilder();
         //
         try {
@@ -92,7 +137,7 @@ public final class ManageResourceFromMSIEnabledVirtualMachineBelongsToAADGroup {
         }
         //
         if (retry > maxRetry) {
-            throw new RuntimeException(String.format("MSI: Failed to acquire tokens after %s times", maxRetry));
+            throw new RuntimeException(String.format("MSI: Failed to acquire tokens after retrying %s times", maxRetry));
         }
         return null;
     }
@@ -108,13 +153,17 @@ public final class ManageResourceFromMSIEnabledVirtualMachineBelongsToAADGroup {
     public static void main(String[] args) throws MalformedURLException, IOException {
         ManageResourceFromMSIEnabledVirtualMachineBelongsToAADGroup msi = new ManageResourceFromMSIEnabledVirtualMachineBelongsToAADGroup();
 
+        for (int i = 0; i < 10; i++) {
+            System.out.println();
+            msi.getToken();
+            System.out.println();
+            Sleep(1000);
+        }
+        /**
         MSIToken token = msi.retrieveTokenFromIDMSWithRetry();
         System.out.println(token.accessToken());
         System.out.println(token.expireOn());
         System.out.println(token.tokenType());
-    }
-
-    private ManageResourceFromMSIEnabledVirtualMachineBelongsToAADGroup() {
-        this.adapter = new AzureJacksonAdapter();
+         **/
     }
 }
